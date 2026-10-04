@@ -1,2 +1,7 @@
 disk-backpup.img
 .vscode/
+Makefile
+main.o
+main
+printfunc.o
+readDirectories.o
