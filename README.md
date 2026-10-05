@@ -110,6 +110,16 @@ Mode 2 reuses the same traversal from Task22. Nothing is printed for directories
 4. Subtracts the bytes read from `bytes_toread`, null-terminates the buffer at `block[block_size]`, and prints it with `printf("%s\n", block)`.
 5. Frees the buffer and returns the new `bytes_toread`.
 
+**Indirect blocks**
+
+The three indirect helpers are built the same way, each one handing off to the level below:
+
+- `readSingly()` reads 4-byte block ids from a singly indirect block and calls `readBlock()` for each one.
+- `readDoubly()` reads 4-byte ids of singly indirect blocks from a doubly indirect block and calls `readSingly()` for each one.
+- `readTriply()` reads 4-byte ids of doubly indirect blocks from a triply indirect block and calls `readDoubly()` for each one.
+
+Each of them keeps a running `offset` that starts at `block_id * block_size`, seeks there, reads 4 bytes, and moves the offset forward by 4. Each loop stops when `bytes_toread` hits 0.
+
 ## 6. Known issues
 
 - Inode size is hardcoded to 256
