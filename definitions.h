@@ -72,7 +72,9 @@ struct inode {
 };
 
 //defining the directory inode structure
-//forces the compiler to store data with no padding bytes
+
+//pragma forces the compiler to store data with no padding bytes
+//since i'm reading the first 8 bits, then i'm reading name, it might fill name as well with garbage bytes
 #pragma pack(push, 1)
 struct directory {
     uint32_t inode;

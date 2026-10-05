@@ -75,16 +75,17 @@ int readSingly(FILE *img, int singly_block_id, int block_size, int bytes_toread)
 
     int block_id;
     int offset = singly_block_id * block_size;
+    int relative_offset = 0;
 
-    while(offset < block_size && bytes_toread > 0){
+    while(relative_offset < block_size && bytes_toread > 0){
         //moving the file_pointer to offset
-        fseek(img, offset, SEEK_SET);
+        fseek(img, offset + relative_offset, SEEK_SET);
         //reading a direct block id from the singly indirect block
         fread(&block_id, 1, 4, img);
-        offset += 4;
+        relative_offset += 4;
 
         //calling readBlock
-        bytes_toread = readBlock(img, block_id, bytes_toread, block_size);
+        bytes_toread = readBlock(img, block_id, block_size, bytes_toread);
     }
 
     return bytes_toread;
@@ -96,16 +97,17 @@ int readDoubly(FILE *img, int doubly_block_id, int block_size, int bytes_toread)
 
     int singly_block_id;
     int offset = doubly_block_id * block_size;
+    int relative_offset = 0;
 
-    while(offset < block_size && bytes_toread > 0){
+    while(relative_offset < block_size && bytes_toread > 0){
         //moving the file_pointer to offset
-        fseek(img, offset, SEEK_SET);
+        fseek(img, offset + relative_offset, SEEK_SET);
         //reading a singly indirect block id from the doubly indirect block
         fread(&singly_block_id, 1, 4, img);
-        offset += 4;
+        relative_offset += 4;
 
         //calling readSingly
-        bytes_toread = readSingly(img, singly_block_id, bytes_toread, block_size);
+        bytes_toread = readSingly(img, singly_block_id, block_size, bytes_toread);
     }
     
     return bytes_toread;
@@ -117,16 +119,17 @@ int readTriply(FILE *img, int triply_block_id, int block_size, int bytes_toread)
 
     int doubly_block_id;
     int offset = triply_block_id * block_size;
+    int relative_offset = 0;
 
-    while(offset < block_size && bytes_toread > 0){
+    while(relative_offset < block_size && bytes_toread > 0){
         //moving the file_pointer to offset 
-        fseek(img, offset, SEEK_SET);
+        fseek(img, offset + relative_offset, SEEK_SET);
         //reading a doubly indirect block id from the triply indirect block
         fread(&doubly_block_id, 1, 4, img);
-        offset += 4;
+        relative_offset += 4;
 
         //calling readDoubly
-        bytes_toread = readDoubly(img, doubly_block_id, bytes_toread, block_size);
+        bytes_toread = readDoubly(img, doubly_block_id, block_size, bytes_toread);
     }
 
     return bytes_toread;
