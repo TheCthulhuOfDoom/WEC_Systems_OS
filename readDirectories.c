@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#include <string.h>
 #include "definitions.h"
 #include "readDirectories.h"
 #include "readFiles.h"
 
-int readDirectories(){
-
+int readDirectories(char mode, char *filename){
     //obtaining the superblock and GDT structures
     FILE* img;
     img = fopen("disk-backpup.img", "rb");
@@ -43,11 +43,11 @@ int readDirectories(){
     struct inode root_inode;
     fread(&root_inode, 1, sizeof(struct inode), img);
 
-    readSubDirectories(img, sb, gdt, root_inode, 0);
+    readSubDirectories(img, sb, gdt, root_inode, 0, mode, filename);
 }
 
 
-int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor gdt[], struct inode file_inode, int depth){
+int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor gdt[], struct inode file_inode, int depth, char mode, char *filename){
 
     int i = 0;
     int offset, increase, toskip;
@@ -70,12 +70,15 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
         //reading the contents of that block to file_dir
         fread(&file_dir, 1, 8, img);
         fread(&file_dir.name, 1, file_dir.name_len, img);
+
         //increase tracks how many bytes we have read in the current block
         increase = file_dir.rec_len;
 
-        //output of snprintf is instead written to names
-        for(int i = 0; i < depth; i++) printf("\t");
-        printf("%.*s\n", file_dir.name_len, file_dir.name);
+        //checking if function is in print dirctories mode
+        if(mode == '1'){
+            for(int i = 0; i < depth; i++) printf("\t");
+            printf("%.*s\n", file_dir.name_len, file_dir.name);
+        }
 
 
         //the file pointer moves forward automatically when using fread
@@ -89,13 +92,17 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
 
             //reads the 
             fread(&file_dir.name, 1, file_dir.name_len, img);
+            //setting the [len] index to \0 so using strcmp later on won't bug out
+            file_dir.name[file_dir.name_len] = '\0';
 
 
             increase += file_dir.rec_len;
 
-            //printing the name of the directory
-            for(int i = 0; i < depth; i++) printf("\t");
-            printf("%.*s\n", file_dir.name_len, file_dir.name);
+            //printing the name of the directory after checking mode
+            if(mode == '1'){
+                for(int i = 0; i < depth; i++) printf("\t");
+                printf("%.*s\n", file_dir.name_len, file_dir.name);
+            }
             
             
             //to check whether to skip . and .. directories
@@ -113,27 +120,36 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
                 fseek(img, offset, SEEK_SET);
                 fread(&child_dir_inode, 1, sizeof(struct inode), img);
                 
-                readSubDirectories(img, sb, gdt, child_dir_inode, depth + 1);
+                readSubDirectories(img, sb, gdt, child_dir_inode, depth + 1, mode, filename);
             }
 
             //check if the file type is a regular file, then call readFiles
             else if(file_dir.file_type == 1){
-                //the inode stored in file_dir.inode will give us the inode to the file
-                //so we need to pass that to readFiles
-                //to get that inode:
-                int index = (file_dir.inode - 1) / sb.s_inodes_per_group;
-                int offset = (gdt[index].bg_inode_table * (1024 << sb.s_log_block_size)) + ((file_dir.inode - 1) % sb.s_inodes_per_group * 256);
-                struct inode child_file_inode;
+                //checking if the functions is in print file mode
+                if (mode == '2'){
+                    //checking if file name is same as the one sent from main.c
+                    if(strcmp(filename, file_dir.name) == 0){
+                        //the inode stored in file_dir.inode will give us the inode to the file
+                        //so we need to pass that to readFiles
+                        //to get that inode:
+                        
+                        int index = (file_dir.inode - 1) / sb.s_inodes_per_group;
+                        int offset = (gdt[index].bg_inode_table * (1024 << sb.s_log_block_size)) + ((file_dir.inode - 1) % sb.s_inodes_per_group * 256);
+                        struct inode child_file_inode;
 
-                fseek(img, offset, SEEK_SET);
-                fread(&child_file_inode, 1, sizeof(struct inode), img);
+                        fseek(img, offset, SEEK_SET);
+                        fread(&child_file_inode, 1, sizeof(struct inode), img);
 
-                readFiles(img, sb, gdt, child_file_inode);
+                        readFiles(img, sb, gdt, child_file_inode);
+                    }
+                }
             }
 
         }
 
-        printf("\n");
+        //checking mode before printing \n cause otherwise formatting gets messed up
+        if(mode == '1') printf("\n");
+
         //forgot what this bit of code does
         i++;
 
