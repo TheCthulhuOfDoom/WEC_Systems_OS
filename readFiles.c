@@ -10,7 +10,7 @@
 int readFiles(FILE *img, struct superblock sb, struct group_descriptor gdt[], struct inode file_inode){
 
     //creating a buffer variable to store our data
-    char *file = malloc(1024 << sb.s_log_block_size);
+    char *file = malloc(1024 << sb.s_log_block_size + 1);
 
     //storing file_inode.i_size in a variable since we need to change the value in the loop
     int bytes_toread = file_inode.i_size, bytes_read;
@@ -32,7 +32,9 @@ int readFiles(FILE *img, struct superblock sb, struct group_descriptor gdt[], st
         }
 
         bytes_toread -= bytes_read;
+        // fwrite(file, 1, bytes_read, stdout);
+        file[1024 << sb.s_log_block_size] = '\0';
+        printf("%s\n", file);
     }
-    printf("%s\n", file);
     free(file);
 }

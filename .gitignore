@@ -5,3 +5,4 @@ main.o
 main
 printfunc.o
 readDirectories.o
+readFiles.o
