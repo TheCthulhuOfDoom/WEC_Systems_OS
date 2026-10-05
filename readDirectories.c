@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include "definitions.h"
 #include "readDirectories.h"
+#include "readFiles.h"
 
 int readDirectories(){
 
@@ -48,26 +49,10 @@ int readDirectories(){
 
 int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor gdt[], struct inode file_inode, int depth){
 
-
-    
-
-    //moving the file pointer to the first block stored in the inode
-    // fseek(img, file_inode.i_block[0] * (1024 << sb.s_log_block_size), SEEK_SET);
-
-    //reading the first folder "." to the struct
-    // struct directory file_dir;
-    // fread(&file_dir, 1, 12, img);
-
-
-    
-
     int i = 0;
     int offset, increase, toskip;
 
-    //definition of the variable in which we're storing the formatted name
-    // char name[12];
     struct directory file_dir;
-    // char *names;
 
     //outer while loop loops through all the datablocks stored in the inode struct
     while(i < 12){
@@ -78,6 +63,8 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
         offset = file_inode.i_block[i] * (1024 << sb.s_log_block_size);
         increase = 0;
 
+        
+        //reading the first folder "."
         //moving the file pointer to the block we want to access
         fseek(img, offset + increase, SEEK_SET); 
         //reading the contents of that block to file_dir
@@ -87,14 +74,13 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
         increase = file_dir.rec_len;
 
         //output of snprintf is instead written to names
-        // snprintf(names, sizeof(char) * file_dir.name_len + 1, "%.*s", file_dir.name_len, file_dir.name);
-        // printf("%s %c\n", names, names[file_dir.name_len - 1]);
-        // free(names);
         for(int i = 0; i < depth; i++) printf("\t");
         printf("%.*s\n", file_dir.name_len, file_dir.name);
 
 
-        //the file pointer moves forward automatically when using fread, so we don't need to use fseek from this point onwards
+        //the file pointer moves forward automatically when using fread
+        //however, we want to move the pointer in 3 steps - first to the start of the directory data, then to the start of where dir.name is stored, then to move to the next set of directory data
+        //we need fseek for the last one, which is why we're incrementing increase by dir.reclen
 
         //inner while loop loops within the datablock
         while(increase < (1024 << sb.s_log_block_size)){
@@ -108,8 +94,6 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
             increase += file_dir.rec_len;
 
             //printing the name of the directory
-            // names = malloc(file_dir.name_len + 1);
-            // snprintf(names, sizeof(char) * file_dir.name_len + 1, "%.*s", file_dir.name_len, file_dir.name);
             for(int i = 0; i < depth; i++) printf("\t");
             printf("%.*s\n", file_dir.name_len, file_dir.name);
             
@@ -124,14 +108,28 @@ int readSubDirectories(FILE *img, struct superblock sb, struct group_descriptor 
                 int index = (file_dir.inode - 1) / sb.s_inodes_per_group;
                 //offset = 
                 int offset = (gdt[index].bg_inode_table * (1024 << sb.s_log_block_size)) + ((file_dir.inode - 1) % sb.s_inodes_per_group * 256);
+                struct inode child_dir_inode;
+
+                fseek(img, offset, SEEK_SET);
+                fread(&child_dir_inode, 1, sizeof(struct inode), img);
+                
+                readSubDirectories(img, sb, gdt, child_dir_inode, depth + 1);
+            }
+
+            //check if the file type is a regular file, then call readFiles
+            else if(file_dir.file_type == 1){
+                //the inode stored in file_dir.inode will give us the inode to the file
+                //so we need to pass that to readFiles
+                //to get that inode:
+                int index = (file_dir.inode - 1) / sb.s_inodes_per_group;
+                int offset = (gdt[index].bg_inode_table * (1024 << sb.s_log_block_size)) + ((file_dir.inode - 1) % sb.s_inodes_per_group * 256);
                 struct inode child_file_inode;
 
                 fseek(img, offset, SEEK_SET);
                 fread(&child_file_inode, 1, sizeof(struct inode), img);
-                
-                readSubDirectories(img, sb, gdt, child_file_inode, depth + 1);
+
+                readFiles(img, sb, gdt, child_file_inode);
             }
-            // free(names);
 
         }
 
